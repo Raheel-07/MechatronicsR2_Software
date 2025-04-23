@@ -6,7 +6,8 @@ import sys
 import websockets
 import time
 from typing import Dict, Any, Optional
-from logging_config import get_logger
+
+from drone_simulator.logging_config import get_logger
 
 logger = get_logger("client")
 
@@ -137,76 +138,29 @@ class DroneClient:
     
     async def interactive_control(self, websocket) -> None:
         """Interactively control the drone through the console."""
-        logger.info("Starting interactive control")
-        
-        print("\n==== Drone Simulator Interactive Console ====")
-        print("Commands: 'exit' to quit, 'help' for instructions, 'auto' for auto pilot")
-        print("Input format: speed,altitude,movement (e.g., '2,0,fwd')")
-        print("Keep-alive pings are sent automatically every 20 seconds")
-        
-        help_text = """
-Commands:
-- speed: integer 0-5
-- altitude: positive or negative integer
-- movement: 'fwd' or 'rev'
-
-Examples:
-- 3,0,fwd   # Move forward at speed 3
-- 0,5,fwd   # Gain altitude by 5 units
-- 2,-1,rev  # Move backward and descend 1 unit
-- auto      # Start auto pilot mode
-- exit      # Exit the client
-- help      # Show this help message
-- status    # Show current telemetry and metrics
-- ping      # Send a keep-alive command (0,0,fwd)
-        """
-        
+        logger.info("Starting custom control")
         try:
             while True:
-                command = input("\nEnter command: ")
-                logger.debug(f"User entered command: {command}")
-                
-                if command.lower() == 'exit':
-                    logger.info("User requested exit")
-                    break
-                    
-                if command.lower() == 'help':
-                    print(help_text)
-                    continue
-                
-                if command.lower() == 'status' and self.telemetry:
-                    self.display_status()
-                    continue
-                
-                if command.lower() == 'auto':
-                    logger.info("Starting auto pilot mode")
-                    await self.auto_pilot(websocket)
-                    continue
-                    
-                if command.lower() == 'ping':
-                    print("Sending keep-alive ping...")
-                    logger.info("User requested ping")
-                    data = await self.send_command(websocket, 0, 0, "fwd")
-                    if data:
-                        self.update_state(data)
-                        print("Keep-alive successful")
-                    continue
-                
+                if self.telemetry:
+                    sensor=self.telemetry.split('-')[-1]
+                    # alt=int(self.telemetry.split('-')[3])
+                    iteration = int(self.metrics['iterations'])
+                else: 
+                    iteration=0
+                    # alt=0
+                    sensor="GREEN"
+
+                if iteration == 0:
+                    altitude = 1
+                else:
+                    altitude = (-1)**(iteration+1)
+
                 try:
-                    # Parse command
-                    parts = command.split(',')
-                    if len(parts) != 3:
-                        print("Invalid command format. Use: speed,altitude,movement")
-                        logger.warning(f"Invalid command format: {command}")
-                        continue
-                        
-                    speed = int(parts[0])
-                    altitude = int(parts[1])
-                    movement = parts[2].strip()
-                    
-                    # Send command
-                    data = await self.send_command(websocket, speed, altitude, movement)
+                    speed = 1
+                    move = 'fwd'
+                    data = await self.send_command(websocket, speed, altitude, move)
                     if data:
+                        print(data, type(data))
                         self.update_state(data)
                         self.display_status()
                     elif data is None:  # Crash occurred
